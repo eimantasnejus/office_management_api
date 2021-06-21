@@ -4,9 +4,11 @@ import pytz
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.test import TestCase
+from rest_framework.response import Response
 from rest_framework.test import APIClient
 
 from room_reservation_app.models import Room, Reservation
+from room_reservation_app.views import check_business_logic
 
 
 class ReservationTest(TestCase):
@@ -38,26 +40,26 @@ class ReservationTest(TestCase):
             title="Daily Stand-up",
             room=self.room1,
             reserved_from=datetime.now(pytz.timezone(settings.TIME_ZONE)),
-            reserved_to=(datetime.now(pytz.timezone(settings.TIME_ZONE)) + timedelta(minutes=20)),
+            reserved_to=datetime.now(pytz.timezone(settings.TIME_ZONE)) + timedelta(minutes=20),
             owner=self.user1,
         )
         self.reservation1.employees.set([self.user1, self.user2])
         self.reservation2 = Reservation.objects.create(
             title="Sprint Planning",
             room=self.room2,
-            reserved_from=datetime.now(pytz.timezone(settings.TIME_ZONE)),
-            reserved_to=(datetime.now(pytz.timezone(settings.TIME_ZONE)) + timedelta(hours=1.5)),
+            reserved_from=datetime.now(pytz.timezone(settings.TIME_ZONE)) + timedelta(hours=2),
+            reserved_to=datetime.now(pytz.timezone(settings.TIME_ZONE)) + timedelta(hours=6),
             owner=self.user1,
         )
         self.reservation2.employees.set([self.user1, self.user2])
 
         # Reusable template for creating/updating reservation instances.
-        current_time = datetime.now(pytz.timezone(settings.TIME_ZONE))
+        self.current_time = datetime.now(pytz.timezone(settings.TIME_ZONE))
         self.reservation_template = {
             "title": "Post Mortem",
             "room": self.room1.id,
-            "reserved_from": current_time.isoformat(),
-            "reserved_to": (current_time + timedelta(hours=1)).isoformat(),
+            "reserved_from": (self.current_time - timedelta(hours=3)).isoformat(),
+            "reserved_to": (self.current_time - timedelta(hours=2)).isoformat(),
             "owner": self.user1.id,
             "employees": [self.user1.id, self.user2.id]
         }
@@ -82,8 +84,6 @@ class ReservationTest(TestCase):
         self.assertEquals(response_json.get('title'), 'Post Mortem', 'Check response content validity')
         self.assertEquals(len(response_json.get('employees')), 2, 'Check response content validity')
         self.assertEquals(Reservation.objects.count(), 3, 'Check if Reservation was created in database.')
-    # TODO: Check serialized related fields.
-    # TODO: Test create reservation for already reserved time and room.
 
     def test_get_all_reservations(self):
         """Test get all reservations endpoint."""
@@ -92,6 +92,10 @@ class ReservationTest(TestCase):
         # Check.
         self.assertEquals(response.status_code, 200, 'Get should return 200 status code.')
         self.assertEquals(len(response.json()), 2, 'In total there are 2 reservations.')
+        self.assertEquals(
+            (response.json()[0]['owner']['email']),
+            'testuser1@example.com',
+            'Related objects should be serialized in human readable format.')
 
     def test_get_reservations_by_room(self):
         """Test get all reservations for requested room endpoint."""
@@ -141,3 +145,60 @@ class ReservationTest(TestCase):
         self.assertEquals(response.status_code, 204, 'Delete should return 204 status code.')
         self.assertFalse(Reservation.objects.filter(id=self.reservation1.id),
                          'Check if Reservation was removed from database.')
+
+    def test_is_room_available(self):
+        """Check if helper function `check_business_logic` works as expected with various parameters.
+
+        Visual aid in the comments for each case:
+        "-" - Requested period
+        "|" - Existing period
+        "+" - Overlapping period
+        """
+        # Case date_from > date_to
+        result = check_business_logic(
+            self.room1,
+            self.current_time - timedelta(hours=6),
+            self.current_time - timedelta(hours=5))
+        self.assertEquals(result, None)
+        # Case ---- ||||
+        result = check_business_logic(
+            self.room1,
+            self.current_time - timedelta(hours=6),
+            self.current_time - timedelta(hours=5))
+        self.assertEquals(result, None)
+        # Case ---+|||
+        result = check_business_logic(
+            self.room1,
+            self.current_time - timedelta(hours=6),
+            self.current_time)
+        self.assertEquals(type(result), Response)
+        # Case |||++---
+        result = check_business_logic(
+            self.room1,
+            self.current_time + timedelta(minutes=6),
+            self.current_time + timedelta(hours=6))
+        self.assertEquals(type(result), Response)
+        # Case ---+++----
+        result = check_business_logic(
+            self.room1,
+            self.current_time - timedelta(hours=6),
+            self.current_time + timedelta(hours=6))
+        self.assertEquals(type(result), Response)
+        # Case |||+++|||
+        result = check_business_logic(
+            self.room1,
+            self.current_time + timedelta(minutes=3),
+            self.current_time + timedelta(minutes=6))
+        self.assertEquals(type(result), Response)
+        # Case ||| ---
+        result = check_business_logic(
+            self.room1,
+            self.current_time + timedelta(hours=6),
+            self.current_time + timedelta(hours=7))
+        self.assertEquals(result, None)
+        # Case overlapping time with room1, but different room.
+        result = check_business_logic(
+            self.room2,
+            self.current_time,
+            self.current_time + timedelta(hours=1.5))
+        self.assertEquals(result, None)
