@@ -202,50 +202,50 @@ class ReservationTest(TestCase):
         "+" - Overlapping period
         """
         # Case: date_from > date_to
-        result = check_business_logic(
+        error_message = check_business_logic(
             self.room1,
-            self.current_time - timedelta(hours=6),
-            self.current_time - timedelta(hours=5))
-        self.assertEquals(result, None)
+            self.current_time - timedelta(hours=5),
+            self.current_time - timedelta(hours=6))
+        self.assertEquals(error_message, 'Reservation start time cannot be later than its end time!')
         # Case: ---- ||||
-        result = check_business_logic(
+        error_message = check_business_logic(
             self.room1,
             self.current_time - timedelta(hours=6),
             self.current_time - timedelta(hours=5))
-        self.assertEquals(result, None)
+        self.assertEquals(error_message, '')
         # Case: ---+|||
-        result = check_business_logic(
+        error_message = check_business_logic(
             self.room1,
             self.current_time - timedelta(hours=6),
             self.current_time)
-        self.assertEquals(type(result), Response)
+        self.assertEquals(error_message, 'Selected room is occupied during requested period!')
         # Case: |||++---
-        result = check_business_logic(
+        error_message = check_business_logic(
             self.room1,
             self.current_time + timedelta(minutes=6),
             self.current_time + timedelta(hours=6))
-        self.assertEquals(type(result), Response)
+        self.assertEquals(error_message, 'Selected room is occupied during requested period!')
         # Case: ---+++----
-        result = check_business_logic(
+        error_message = check_business_logic(
             self.room1,
             self.current_time - timedelta(hours=6),
             self.current_time + timedelta(hours=6))
-        self.assertEquals(type(result), Response)
+        self.assertEquals(error_message, 'Selected room is occupied during requested period!')
         # Case: |||+++|||
-        result = check_business_logic(
+        error_message = check_business_logic(
             self.room1,
             self.current_time + timedelta(minutes=3),
             self.current_time + timedelta(minutes=6))
-        self.assertEquals(type(result), Response)
+        self.assertEquals(error_message, 'Selected room is occupied during requested period!')
         # Case: ||| ---
-        result = check_business_logic(
+        error_message = check_business_logic(
             self.room1,
             self.current_time + timedelta(hours=6),
             self.current_time + timedelta(hours=7))
-        self.assertEquals(result, None)
+        self.assertEquals(error_message, '')
         # Case: overlapping time with room1, but different room.
-        result = check_business_logic(
+        error_message = check_business_logic(
             self.room2,
             self.current_time,
             self.current_time + timedelta(hours=1.5))
-        self.assertEquals(result, None)
+        self.assertEquals(error_message, '')

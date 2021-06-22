@@ -26,7 +26,7 @@ App administrator can manage Employees and Meeting Rooms.
 * `admin/` - Django admin console for creating Employees and Meeting Rooms;
 * `room-reservation-app/reservations/` - get list of reservations [GET, POST];
 * `room-reservation-app/reservations/?room_id=1` - get list of reservations by meeting room id [GET, POST];
-* `room-reservation-app/reservations/1/` - get list of reservations [GET, PUT, DELETE];
+* `room-reservation-app/reservations/1/` - get reservation by id [GET, PUT, DELETE];
 * `room-reservation-app/rooms/` - get list of rooms [GET].
 
 ## Running Tests

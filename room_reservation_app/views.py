@@ -37,9 +37,9 @@ class ReservationList(APIView):
         if serializer.is_valid():
             data = serializer.validated_data
             # Check business logic.
-            error = check_business_logic(data.get('room'), data.get('reserved_from'), data.get('reserved_to'))
-            if error:
-                return error
+            error_message = check_business_logic(data.get('room'), data.get('reserved_from'), data.get('reserved_to'))
+            if error_message:
+                return Response(error_message, status=status.HTTP_400_BAD_REQUEST)
 
             reservation = Reservation.objects.create(
                 title=data.get('title'),
@@ -72,9 +72,10 @@ class ReservationDetail(APIView):
             if request.user != reservation.owner:
                 return Response("Only reservation owner can update it!", status=status.HTTP_403_FORBIDDEN)
             # Check business logic.
-            error = check_business_logic(data.get('room'), data.get('reserved_from'), data.get('reserved_to'))
-            if error:
-                return error
+            error_message = check_business_logic(
+                data.get('room'), data.get('reserved_from'), data.get('reserved_to'))
+            if error_message:
+                return Response(error_message, status=status.HTTP_400_BAD_REQUEST)
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -106,21 +107,21 @@ class RoomList(APIView):
         return Response(serializer.data)
 
 
-def check_business_logic(room: Room, time_from: datetime, time_to: datetime) -> Optional[Response]:
+def check_business_logic(room: Room, time_from: datetime, time_to: datetime) -> str:
     """Check if provided data follows business logic.
 
     :param room: Room instance.
     :param time_from: datetime object, representing requested start of reservation.
     :param time_to: datetime object, representing requested end of reservation.
-    :return: Response or None. In case of business logic breach, Response with informative message is returned.
+    :return: string. In case of business logic breach, informative message is returned.
     """
 
-    # TODO: Refactor to return only error string
     if time_from > time_to:
-        return Response("Reservation start time cannot be later than its end time!", status=status.HTTP_400_BAD_REQUEST)
+        return "Reservation start time cannot be later than its end time!"
     if not is_room_available(room, time_from, time_to):
-        return Response("Selected room is occupied during requested period!",
-                        status=status.HTTP_400_BAD_REQUEST)
+        return "Selected room is occupied during requested period!"
+    return ''
+
 
 
 def is_room_available(room: Room, time_from: datetime, time_to: datetime) -> bool:
