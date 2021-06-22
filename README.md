@@ -23,6 +23,8 @@ App administrator can manage Employees and Meeting Rooms.
 `python manage.py runserver`
 
 ## Main Endpoints
+Check *docs/api_documentation.md* for more information on endpoint usage.
+
 * `admin/` - Django admin console for creating Employees and Meeting Rooms;
 * `room-reservation-app/reservations/` - get list of reservations [GET, POST];
 * `room-reservation-app/reservations/?room_id=1` - get list of reservations by meeting room id [GET, POST];
@@ -34,9 +36,10 @@ App administrator can manage Employees and Meeting Rooms.
 
 ## TODO
 * TODO: Dockerize project and update launch instructions;
-* TODO: Documentation for each endpoint.
 
 ## Nice To Have
 * Single Reservation object serializer;
-* Code division to multiple directories / files.
-* Pylint error fixes
+* Code division to multiple directories / files;
+* Documentation using Swagger;
+* Pylint error fixes.
+* Bug: `is_room_available` should dismiss reservation which is being updated from PUT request validation.

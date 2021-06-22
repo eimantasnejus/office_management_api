@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Optional
 
 from django.contrib.auth.models import User
 from django.db.models import Q
@@ -121,7 +120,6 @@ def check_business_logic(room: Room, time_from: datetime, time_to: datetime) -> 
     if not is_room_available(room, time_from, time_to):
         return "Selected room is occupied during requested period!"
     return ''
-
 
 
 def is_room_available(room: Room, time_from: datetime, time_to: datetime) -> bool:
