@@ -16,6 +16,7 @@ App administrator can manage Employees and Meeting Rooms.
 * `virtualenv venv` to create your new environment (called 'venv' here);
 * `source venv/bin/activate` to enter the virtual environment;
 * `pip install -r requirements.txt` to install the requirements in the current environment;
+* `python manage.py migrate` create initial database (this method will create sqlite database)
 * `python manage.py createsuperuser --email sample@email.com --username sample_username` create Django administrator.
 
 ## Running App
@@ -36,7 +37,6 @@ App administrator can manage Employees and Meeting Rooms.
 * TODO: Authentication solution;
 * TODO: Redirect: http://127.0.0.1:8000/ -> http://127.0.0.1:8000/room-reservation-app/reservations/;
 * TODO: Documentation for each endpoint.
-* TODO: Migrations should be added to launch instructions
 
 ## Nice To Have
 * Single Reservation object serializer;
