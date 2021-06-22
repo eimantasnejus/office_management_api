@@ -34,8 +34,6 @@ App administrator can manage Employees and Meeting Rooms.
 
 ## TODO
 * TODO: Dockerize project and update launch instructions;
-* TODO: Authentication solution;
-* TODO: Redirect: http://127.0.0.1:8000/ -> http://127.0.0.1:8000/room-reservation-app/reservations/;
 * TODO: Documentation for each endpoint.
 
 ## Nice To Have

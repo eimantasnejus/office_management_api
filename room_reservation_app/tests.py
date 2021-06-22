@@ -33,6 +33,7 @@ class ReservationTest(TestCase):
             username='testuser1',
             password='12345'
         )
+        self.client.login(username='testuser1', password='12345')
         self.user2 = User.objects.create_user(username='testuser2', password='12345')
 
         # Reservation Instances.
@@ -84,6 +85,16 @@ class ReservationTest(TestCase):
         self.assertEquals(response_json.get('title'), 'Post Mortem', 'Check response content validity')
         self.assertEquals(len(response_json.get('employees')), 2, 'Check response content validity')
         self.assertEquals(Reservation.objects.count(), 3, 'Check if Reservation was created in database.')
+
+    def test_create_reservations_unauthenticated_user(self):
+        """Test create reservation with unauthenticated user endpoint."""
+        # Setup.
+        request_data = self.reservation_template
+        self.client.logout()
+        # Do.
+        response = self.client.post(self.reservations_url, request_data, format='json')
+        # Check.
+        self.assertEquals(response.status_code, 403, 'Create should return 403 status code for unauthenticated user.')
 
     def test_get_all_reservations(self):
         """Test get all reservations endpoint."""
@@ -138,6 +149,25 @@ class ReservationTest(TestCase):
         self.assertEquals(response.status_code, 200, 'Put should return 200 status code.')
         self.assertEquals(response.json().get('title'), 'Post Mortem', 'Reservation title should have changed.')
 
+    def test_update_reservation_with_wrong_owner(self):
+        # Setup.
+        self.client.login(username='testuser2', password='12345')
+        request_data = self.reservation_template
+        # Do.
+        response = self.client.put(f"{self.reservations_url}{self.reservation1.id}/", request_data, format='json')
+        # Check.
+        self.assertEquals(response.status_code, 403, 'Only reservation owner should be able to update it.')
+
+    def test_update_reservation_unauthenticated_user(self):
+        """Test update reservation with unauthenticated user endpoint."""
+        # Setup.
+        request_data = self.reservation_template
+        self.client.logout()
+        # Do.
+        response = self.client.put(f"{self.reservations_url}{self.reservation1.id}/", request_data, format='json')
+        # Check.
+        self.assertEquals(response.status_code, 403, 'Update should return 403 status code for unauthenticated user.')
+
     def test_delete_reservation(self):
         # Do.
         response = self.client.delete(f"{self.reservations_url}{self.reservation1.id}/", format='json')
@@ -145,6 +175,23 @@ class ReservationTest(TestCase):
         self.assertEquals(response.status_code, 204, 'Delete should return 204 status code.')
         self.assertFalse(Reservation.objects.filter(id=self.reservation1.id),
                          'Check if Reservation was removed from database.')
+
+    def test_delete_reservation_with_wrong_owner(self):
+        # Setup.
+        self.client.login(username='testuser2', password='12345')
+        # Do.
+        response = self.client.delete(f"{self.reservations_url}{self.reservation1.id}/", format='json')
+        # Check.
+        self.assertEquals(response.status_code, 403, 'Only reservation owner should be able to delete it.')
+
+    def test_delete_reservation_unauthenticated_user(self):
+        """Test delete reservation with unauthenticated user endpoint."""
+        # Setup.
+        self.client.logout()
+        # Do.
+        response = self.client.delete(f"{self.reservations_url}{self.reservation1.id}/", format='json')
+        # Check.
+        self.assertEquals(response.status_code, 403, 'Delete should return 403 status code for unauthenticated user.')
 
     def test_is_room_available(self):
         """Check if helper function `check_business_logic` works as expected with various parameters.
@@ -154,49 +201,49 @@ class ReservationTest(TestCase):
         "|" - Existing period
         "+" - Overlapping period
         """
-        # Case date_from > date_to
+        # Case: date_from > date_to
         result = check_business_logic(
             self.room1,
             self.current_time - timedelta(hours=6),
             self.current_time - timedelta(hours=5))
         self.assertEquals(result, None)
-        # Case ---- ||||
+        # Case: ---- ||||
         result = check_business_logic(
             self.room1,
             self.current_time - timedelta(hours=6),
             self.current_time - timedelta(hours=5))
         self.assertEquals(result, None)
-        # Case ---+|||
+        # Case: ---+|||
         result = check_business_logic(
             self.room1,
             self.current_time - timedelta(hours=6),
             self.current_time)
         self.assertEquals(type(result), Response)
-        # Case |||++---
+        # Case: |||++---
         result = check_business_logic(
             self.room1,
             self.current_time + timedelta(minutes=6),
             self.current_time + timedelta(hours=6))
         self.assertEquals(type(result), Response)
-        # Case ---+++----
+        # Case: ---+++----
         result = check_business_logic(
             self.room1,
             self.current_time - timedelta(hours=6),
             self.current_time + timedelta(hours=6))
         self.assertEquals(type(result), Response)
-        # Case |||+++|||
+        # Case: |||+++|||
         result = check_business_logic(
             self.room1,
             self.current_time + timedelta(minutes=3),
             self.current_time + timedelta(minutes=6))
         self.assertEquals(type(result), Response)
-        # Case ||| ---
+        # Case: ||| ---
         result = check_business_logic(
             self.room1,
             self.current_time + timedelta(hours=6),
             self.current_time + timedelta(hours=7))
         self.assertEquals(result, None)
-        # Case overlapping time with room1, but different room.
+        # Case: overlapping time with room1, but different room.
         result = check_business_logic(
             self.room2,
             self.current_time,

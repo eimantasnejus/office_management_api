@@ -4,4 +4,5 @@ from django.urls import path, include
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('room-reservation-app/', include('room_reservation_app.urls')),
+    path('api-auth/', include('rest_framework.urls')),
 ]

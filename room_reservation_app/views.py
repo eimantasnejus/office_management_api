@@ -1,9 +1,10 @@
 from datetime import datetime
 from typing import Optional
 
+from django.contrib.auth.models import User
 from django.db.models import Q
 from django.http import Http404
-from rest_framework import status
+from rest_framework import status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -13,6 +14,8 @@ from room_reservation_app.serializers import ReservationSerializer, ReservationR
 
 class ReservationList(APIView):
     """List all reservations, or create a new reservation."""
+
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     @staticmethod
     def get(request):
@@ -53,6 +56,8 @@ class ReservationList(APIView):
 class ReservationDetail(APIView):
     """Retrieve, update or delete a reservation instance."""
 
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
     def get(self, request, pk):
         reservation = self.get_object(pk)
         serializer = ReservationResponseSerializer(reservation)
@@ -63,6 +68,9 @@ class ReservationDetail(APIView):
         serializer = ReservationSerializer(reservation, data=request.data)
         if serializer.is_valid():
             data = serializer.validated_data
+            # Check reservation ownership.
+            if request.user != reservation.owner:
+                return Response("Only reservation owner can update it!", status=status.HTTP_403_FORBIDDEN)
             # Check business logic.
             error = check_business_logic(data.get('room'), data.get('reserved_from'), data.get('reserved_to'))
             if error:
@@ -73,6 +81,9 @@ class ReservationDetail(APIView):
 
     def delete(self, request, pk):
         reservation = self.get_object(pk)
+        # Check reservation ownership.
+        if request.user != reservation.owner:
+            return Response("Only reservation owner can delete it!", status=status.HTTP_403_FORBIDDEN)
         reservation.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -104,6 +115,7 @@ def check_business_logic(room: Room, time_from: datetime, time_to: datetime) -> 
     :return: Response or None. In case of business logic breach, Response with informative message is returned.
     """
 
+    # TODO: Refactor to return only error string
     if time_from > time_to:
         return Response("Reservation start time cannot be later than its end time!", status=status.HTTP_400_BAD_REQUEST)
     if not is_room_available(room, time_from, time_to):
@@ -111,7 +123,7 @@ def check_business_logic(room: Room, time_from: datetime, time_to: datetime) -> 
                         status=status.HTTP_400_BAD_REQUEST)
 
 
-def is_room_available(room, time_from, time_to):
+def is_room_available(room: Room, time_from: datetime, time_to: datetime) -> bool:
     """Return true if room is available for reservation, false otherwise."""
     existing_reservation = Reservation.objects.filter(
         (~Q(reserved_to__lt=time_from) &
@@ -121,3 +133,8 @@ def is_room_available(room, time_from, time_to):
     if existing_reservation:
         return False
     return True
+
+
+def is_reservation_owner(user: User, reservation: Reservation) -> bool:
+    """Return true if reservation is owned by user making a request, false otherwise."""
+    return True if reservation.owner == user else False
