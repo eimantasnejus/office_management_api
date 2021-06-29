@@ -42,4 +42,3 @@ Check *docs/api_documentation.md* for more information on endpoint usage.
 * Code division to multiple directories / files;
 * Documentation using Swagger;
 * Pylint error fixes.
-* Bug: `is_room_available` should dismiss reservation which is being updated from PUT request validation.

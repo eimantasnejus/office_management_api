@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 
 from django.contrib.auth.models import User
 from django.db.models import Q
@@ -72,7 +73,7 @@ class ReservationDetail(APIView):
                 return Response("Only reservation owner can update it!", status=status.HTTP_403_FORBIDDEN)
             # Check business logic.
             error_message = check_business_logic(
-                data.get('room'), data.get('reserved_from'), data.get('reserved_to'))
+                data.get('room'), data.get('reserved_from'), data.get('reserved_to'), reservation)
             if error_message:
                 return Response(error_message, status=status.HTTP_400_BAD_REQUEST)
             serializer.save()
@@ -106,29 +107,36 @@ class RoomList(APIView):
         return Response(serializer.data)
 
 
-def check_business_logic(room: Room, time_from: datetime, time_to: datetime) -> str:
+def check_business_logic(
+        room: Room, time_from: datetime, time_to: datetime, reservation: Optional[Reservation] = None) -> str:
     """Check if provided data follows business logic.
 
     :param room: Room instance.
     :param time_from: datetime object, representing requested start of reservation.
     :param time_to: datetime object, representing requested end of reservation.
+    :param reservation: Reservation instance. Optional parameter, if given, this reservation will not be checked for
+                        period overlap. Used for updating Reservations.
+
     :return: string. In case of business logic breach, informative message is returned.
     """
 
     if time_from > time_to:
         return "Reservation start time cannot be later than its end time!"
-    if not is_room_available(room, time_from, time_to):
+    if not is_room_available(room, time_from, time_to, reservation):
         return "Selected room is occupied during requested period!"
     return ''
 
 
-def is_room_available(room: Room, time_from: datetime, time_to: datetime) -> bool:
+def is_room_available(
+        room: Room, time_from: datetime, time_to: datetime, reservation: Optional[Reservation] = None) -> bool:
     """Return true if room is available for reservation, false otherwise."""
-    existing_reservation = Reservation.objects.filter(
-        (~Q(reserved_to__lt=time_from) &
-         ~Q(reserved_from__gt=time_to)),
-        room=room,
-    ).first()
+    # Main filter condition - period overlap.
+    f = ~Q(reserved_to__lt=time_from) & ~Q(reserved_from__gt=time_to)
+    # Additional condition - skip same reservation.
+    if reservation:
+        f &= ~Q(id=reservation.id)
+    # Also check if room is the same.
+    existing_reservation = Reservation.objects.filter(f, room=room).first()
     if existing_reservation:
         return False
     return True

@@ -4,7 +4,6 @@ import pytz
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.test import TestCase
-from rest_framework.response import Response
 from rest_framework.test import APIClient
 
 from room_reservation_app.models import Room, Reservation
@@ -147,6 +146,20 @@ class ReservationTest(TestCase):
         response = self.client.put(f"{self.reservations_url}{self.reservation1.id}/", request_data, format='json')
         # Check.
         self.assertEquals(response.status_code, 200, 'Put should return 200 status code.')
+        self.assertEquals(response.json().get('title'), 'Post Mortem', 'Reservation title should have changed.')
+
+    def test_update_same_reservation_overlapping_period(self):
+        # Setup - make start/end time adjustment so it overlaps with previous values.
+        request_data = self.reservation_template
+        request_data.update({
+            "reserved_from": (self.current_time + timedelta(minutes=5)).isoformat(),
+            "reserved_to": (self.current_time + timedelta(minutes=15)).isoformat(),
+        })
+        # Do.
+        response = self.client.put(f"{self.reservations_url}{self.reservation1.id}/", request_data, format='json')
+        # Check.
+        self.assertEquals(
+            response.status_code, 200, 'Same reservation should be successfully updated even with overlapping period.')
         self.assertEquals(response.json().get('title'), 'Post Mortem', 'Reservation title should have changed.')
 
     def test_update_reservation_with_wrong_owner(self):
