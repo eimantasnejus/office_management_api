@@ -7,14 +7,14 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from room_reservation_app.models import Room, Reservation
-from room_reservation_app.views import check_business_logic
+from room_reservation_app.views import check_room_availability
 
 
 class ReservationTest(TestCase):
     """Tests for functionality related to room reservation endpoints."""
 
-    rooms_url = '/room-reservation-app/rooms/'
-    reservations_url = '/room-reservation-app/reservations/'
+    rooms_url = '/api/rooms/'
+    reservations_url = '/api/reservations/'
 
     def setUp(self):
         # Initialize client.
@@ -102,15 +102,11 @@ class ReservationTest(TestCase):
         # Check.
         self.assertEquals(response.status_code, 200, 'Get should return 200 status code.')
         self.assertEquals(len(response.json()), 2, 'In total there are 2 reservations.')
-        self.assertEquals(
-            (response.json()[0]['owner']['email']),
-            'testuser1@example.com',
-            'Related objects should be serialized in human readable format.')
 
     def test_get_reservations_by_room(self):
         """Test get all reservations for requested room endpoint."""
         # Do.
-        response = self.client.get(f"{self.reservations_url}?room_id={self.room2.id}", format='json')
+        response = self.client.get(f"{self.reservations_url}?room={self.room2.id}", format='json')
         # Check.
         self.assertEquals(response.status_code, 200, 'Get should return 200 status code.')
         self.assertEquals(len(response.json()), 1, 'There is 1 reservation for room2.')
@@ -118,17 +114,10 @@ class ReservationTest(TestCase):
     def test_get_reservations_by_non_existent_room_id(self):
         """Test get reservations by room endpoint, but with non existent, valid room id."""
         # Do.
-        response = self.client.get(f"{self.reservations_url}?room_id=548654", format='json')
+        response = self.client.get(f"{self.reservations_url}548654/", format='json')
         # Check.
-        self.assertEquals(response.status_code, 200, 'Should return 200 status code, as request is still valid.')
-        self.assertEquals(len(response.json()), 0, 'There are no reservations for requested room.')
-
-    def test_get_reservations_by_invalid_room_id(self):
-        """Test get reservations by room endpoint, but with invalid room id."""
-        # Do.
-        response = self.client.get(f"{self.reservations_url}?room_id=invalid_id", format='json')
-        # Check.
-        self.assertEquals(response.status_code, 400, 'Should return status 400, as request is invalid.')
+        self.assertEquals(response.status_code, 404,
+                          'Should return 404 status code, as such reservation does not exist.')
 
     def test_get_reservation(self):
         # Do.
@@ -206,8 +195,8 @@ class ReservationTest(TestCase):
         # Check.
         self.assertEquals(response.status_code, 403, 'Delete should return 403 status code for unauthenticated user.')
 
-    def test_is_room_available(self):
-        """Check if helper function `check_business_logic` works as expected with various parameters.
+    def test_check_room_availability(self):
+        """Check if helper function `check_room_availability` works as expected with various parameters.
 
         Visual aid in the comments for each case:
         "-" - Requested period
@@ -215,50 +204,50 @@ class ReservationTest(TestCase):
         "+" - Overlapping period
         """
         # Case: date_from > date_to
-        error_message = check_business_logic(
+        error_response = check_room_availability(
             self.room1,
             self.current_time - timedelta(hours=5),
             self.current_time - timedelta(hours=6))
-        self.assertEquals(error_message, 'Reservation start time cannot be later than its end time!')
+        self.assertEquals(error_response.data, 'Reservation start time cannot be later than its end time!')
         # Case: ---- ||||
-        error_message = check_business_logic(
+        error_response = check_room_availability(
             self.room1,
             self.current_time - timedelta(hours=6),
             self.current_time - timedelta(hours=5))
-        self.assertEquals(error_message, '')
+        self.assertEquals(error_response, None)
         # Case: ---+|||
-        error_message = check_business_logic(
+        error_response = check_room_availability(
             self.room1,
             self.current_time - timedelta(hours=6),
             self.current_time)
-        self.assertEquals(error_message, 'Selected room is occupied during requested period!')
+        self.assertEquals(error_response.data, 'Selected room is occupied during requested period!')
         # Case: |||++---
-        error_message = check_business_logic(
+        error_response = check_room_availability(
             self.room1,
             self.current_time + timedelta(minutes=6),
             self.current_time + timedelta(hours=6))
-        self.assertEquals(error_message, 'Selected room is occupied during requested period!')
+        self.assertEquals(error_response.data, 'Selected room is occupied during requested period!')
         # Case: ---+++----
-        error_message = check_business_logic(
+        error_response = check_room_availability(
             self.room1,
             self.current_time - timedelta(hours=6),
             self.current_time + timedelta(hours=6))
-        self.assertEquals(error_message, 'Selected room is occupied during requested period!')
+        self.assertEquals(error_response.data, 'Selected room is occupied during requested period!')
         # Case: |||+++|||
-        error_message = check_business_logic(
+        error_response = check_room_availability(
             self.room1,
             self.current_time + timedelta(minutes=3),
             self.current_time + timedelta(minutes=6))
-        self.assertEquals(error_message, 'Selected room is occupied during requested period!')
+        self.assertEquals(error_response.data, 'Selected room is occupied during requested period!')
         # Case: ||| ---
-        error_message = check_business_logic(
+        error_response = check_room_availability(
             self.room1,
             self.current_time + timedelta(hours=6),
             self.current_time + timedelta(hours=7))
-        self.assertEquals(error_message, '')
+        self.assertEquals(error_response, None)
         # Case: overlapping time with room1, but different room.
-        error_message = check_business_logic(
+        error_response = check_room_availability(
             self.room2,
             self.current_time,
             self.current_time + timedelta(hours=1.5))
-        self.assertEquals(error_message, '')
+        self.assertEquals(error_response, None)

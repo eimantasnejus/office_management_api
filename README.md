@@ -26,10 +26,11 @@ App administrator can manage Employees and Meeting Rooms.
 Check *docs/api_documentation.md* for more information on endpoint usage.
 
 * `admin/` - Django admin console for creating Employees and Meeting Rooms;
-* `room-reservation-app/reservations/` - get list of reservations [GET, POST];
-* `room-reservation-app/reservations/?room_id=1` - get list of reservations by meeting room id [GET, POST];
-* `room-reservation-app/reservations/1/` - get reservation by id [GET, PUT, DELETE];
-* `room-reservation-app/rooms/` - get list of rooms [GET].
+* `api/reservations/` - get list of reservations [GET, POST];
+* `api/reservations/?room=1` - get list of reservations by meeting room id [GET, POST];
+* `api/reservations/1/` - get reservation by id [GET, PUT, DELETE];
+* `api/rooms/` - get list of rooms [GET].
+* `api/reservations/1/` - get rooms by id [GET];
 
 ## Running Tests
 `python manage.py test`
@@ -38,7 +39,6 @@ Check *docs/api_documentation.md* for more information on endpoint usage.
 * TODO: Dockerize project and update launch instructions;
 
 ## Nice To Have
-* Single Reservation object serializer;
 * Code division to multiple directories / files;
 * Documentation using Swagger;
 * Pylint error fixes.
